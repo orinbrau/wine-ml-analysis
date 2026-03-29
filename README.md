@@ -13,7 +13,7 @@ https://www.kaggle.com/datasets/zynicide/wine-reviews
 **Results:**
  - Achieved **50.4% accuracy!**
  - Much higher than 10% floor of random classification, indicating significant regional difference in taste descriptors
- - Visualizations confirm this with high variance in reginoal frequency when looking at specific descriptor words
+ - Visualizations confirm this with high variance in regional frequency when looking at specific descriptor words
 
 **Future Work:**
  - Examine what makes certain countries' wines more difficult/easy to classify

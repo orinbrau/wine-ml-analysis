@@ -1,0 +1,221 @@
+---
+title: "Untitled"
+output:
+  pdf_document: default
+  html_document: default
+date: "2025-12-04"
+---
+
+```{r}
+library(randomForest)
+library(tidyverse)
+library(tokenizers)
+library(stopwords)
+library(tidytext)
+library(sf)
+library(caret)
+library(rnaturalearth)
+
+wine <- read_csv("winemag-data_first150k.csv")
+```
+
+```{r}
+word_counts <- wine %>% 
+  select(country, description, price, points, province, region_1, region_2, variety) %>%
+  drop_na(country, description) %>%
+  unnest_tokens(word, description) %>%
+  anti_join(get_stopwords()) %>%
+  count(word, sort = TRUE) %>%
+  filter(!(word %in% c("wine", "flavors", "finish", "aromas", "acidity", "tannins", "palate", "black", "drink", "now", "good", "nose", "shows", "well", "blend", "years", "dark", "fruits", "cabernet", "mouth", "like", "green", "texture", "offers", "pinot", "character", "bodied", "bit", "fruit", "touch", "long", "firm", "just", "structure", "style", "sauvignon", "fine", "one", "also", "made", "mouthfeel", "little", "merlot", "mineral", "flavor", "great", "slightly", "medium", "big", "chardonnay", "easy", "age", "delicious", "vineyard", "nice", "new", "best", "aging", "almost", "hints", "dense", "tight", "finishes", "pretty", "give", "solid", "alcohol", "imported", "richness", "hint", "barrel", "high", "note", "yet", "taste", "time", "opens", "much", "wines", "color", "along", "wait", "feel", "complexity", "feels", "quite", "plenty", "pair", "showing", "hard", "edge", "stone", "freshness", "cab", "acids", "delivers", "seems", "blanc", "minerality", "price", "sweetness", "enough", "core", "ready", "tones", "next", "attractive", "although", "bottle", "come", "drinking", "intensity", "right", "bouquet", "notes", "tastes", "weight", "make", "quality", "scents", "grapes"))) %>%
+  head(100)
+```
+
+```{r}
+country_counts <- wine %>% drop_na(country) %>% group_by(country) %>% summarize(count = n()) %>% arrange(desc(count)) %>% filter(country != "Israel")
+
+at_least_10 <- (country_counts %>% filter(count > 9))[[1]]
+
+wine_10_quals <- wine %>% select(description, country) %>% 
+  filter(country %in% head(country_counts[[1]], 10)) %>% 
+  mutate(country = factor(country))
+
+wine_all_quals <- wine %>% select(description, country) %>% 
+  filter(country %in% at_least_10) %>%
+  mutate(country = factor(country))
+```
+
+```{r}
+country_counts %>% mutate(country = fct_rev(fct_infreq(country, count))) %>%
+  filter(count > 100) %>% ggplot(aes(x = country, y = count)) +
+  labs(
+    title = "Country frequency",
+    x = ""
+  ) +
+  geom_col(fill = "#E07E24") +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+      plot.title = element_text(face = "bold")
+    )
+```
+
+
+```{r}
+for (x in 1:100) {
+  wine_10_quals <- wine_10_quals %>%
+    mutate(!!sym(word_counts[[1]][x]) := factor(case_when(
+      str_detect(description, word_counts[[1]][x])  == TRUE ~ 1,
+      str_detect(description, word_counts[[1]][x])  == FALSE ~ 0
+    )))
+}
+
+for (x in 1:100) {
+  wine_all_quals <- wine_all_quals %>%
+    mutate(!!sym(word_counts[[1]][x]) := factor(case_when(
+      str_detect(description, word_counts[[1]][x])  == TRUE ~ 1,
+      str_detect(description, word_counts[[1]][x])  == FALSE ~ 0
+    )))
+}
+```
+
+```{r}
+topwords <- word_counts[[1]]
+
+wine_props <- wine_all_quals %>% 
+  pivot_longer(
+    cols = topwords,       
+    names_to = "word",
+    values_to = "value"
+  ) %>% 
+  group_by(country, word) %>%
+  summarize(prop = mean(as.numeric(as.character(value))), .groups = "drop") %>%
+  pivot_wider(names_from = word, values_from = prop)
+```
+
+```{r}
+world <- ne_countries(scale = "small", returnclass = "sf")
+
+world_merc <- st_transform(world, 3857) %>% 
+  filter(name != "Antarctica") %>%
+  left_join((wine_props %>% 
+               mutate(country = case_when(
+                 country == "US" ~ "United States of America",
+                 .default = country
+                 ))
+             ), 
+            by = join_by(name == country))
+```
+
+```{r}
+ggplot(world_merc) +
+  labs(
+    title = "Proportion of wines with 'cherry' as descriptor"
+  ) +
+  geom_sf(aes(fill = cherry)) +
+  scale_fill_continuous(palette = c(
+    "#6E2FC2", "white", "#E07E24"
+  )) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    plot.title = element_text(face = "bold"),
+    legend.title = element_blank(),
+    panel.grid.major = element_line(colour = "transparent")
+  )
+```
+
+```{r}
+ggplot(world_merc) +
+  labs(
+    title = "Proportion of wines with 'ripe' as descriptor"
+  ) +
+  geom_sf(aes(fill = ripe)) +
+  scale_fill_continuous(palette = c(
+    "#6E2FC2", "white", "#E07E24"
+  )) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    plot.title = element_text(face = "bold"),
+    legend.title = element_blank(),
+    panel.grid.major = element_line(colour = "transparent")
+  )
+```
+
+```{r}
+ggplot(world_merc) +
+  labs(
+    title = "Proportion of wines with 'dry' as descriptor"
+  ) +
+  geom_sf(aes(fill = dry)) +
+  scale_fill_continuous(palette = c(
+    "#6E2FC2", "white", "#E07E24"
+  )) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    plot.title = element_text(face = "bold"),
+    legend.title = element_blank(),
+    panel.grid.major = element_line(colour = "transparent")
+  )
+```
+
+```{r}
+ggplot(world_merc) +
+  labs(
+    title = "Proportion of wines with 'oak' as descriptor"
+  ) +
+  geom_sf(aes(fill = oak)) +
+  scale_fill_continuous(palette = c(
+    "#6E2FC2", "white", "#E07E24"
+  )) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    plot.title = element_text(face = "bold"),
+    legend.title = element_blank(),
+    panel.grid.major = element_line(colour = "transparent")
+  )
+```
+
+
+
+
+```{r}
+model_data <- wine_10_quals %>% 
+  group_by(country) %>%
+  sample_n(size = 3000, replace = FALSE)
+
+set.seed(232)
+ind <- sample(2, nrow(model_data), replace = TRUE, prob = c(0.7, 0.3))
+train <- model_data[ind==1,]
+test <- model_data[ind==2,]
+```
+
+
+```{r}
+wine_forest <- randomForest(country ~ ., mtry = 15, data = train, proximity = FALSE, ntree = 1000)
+```
+
+```{r}
+p1 <- predict(wine_forest, test)
+confusion_table <- as.tibble((confusionMatrix(p1, test$ country))$table) %>% rename("Count" = "n")
+```
+
+```{r}
+ggplot(confusion_table, aes(x = Prediction, y = Reference, fill = Count)) +
+  labs(
+    title = "Model prediction accuracy"
+  ) +
+  geom_tile() +
+  scale_fill_gradient(low="white",high="#E07E24") +
+  theme(
+    axis.text.x  = element_text(angle = 25, vjust = 0.7),
+    plot.title = element_text(face = "bold")
+  )
+```
+

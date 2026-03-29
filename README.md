@@ -11,7 +11,7 @@ https://www.kaggle.com/datasets/zynicide/wine-reviews
  - Visualizing results using ggplot, including confusion matrix and descriptor word choropleth maps
 
 **Results:**
- - Achieved 50.4% accuracy
+ - Achieved **50.4% accuracy!**
  - Much higher than 10% floor of random classification, indicating significant regional difference in taste descriptors
 
 **Future Work:**

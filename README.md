@@ -5,9 +5,9 @@ Can a wine's country of origin be predicted based solely on descriptive words sc
 https://www.kaggle.com/datasets/zynicide/wine-reviews
 
 **Methods:**
- - Tokenizing review text & filtering out stop words and any other words that don't directly pertain to tasting notes
+ - Tokenizing review text & filtering out stop words and any other words that don't directly pertain to tasting notes (using the *tokenizers* package)
  - Determine which countries have enough data to make predictions, randomly sample an equal subset of each to prevent overfitting
- - Developing a random forest ML model (using *randomforest* package with common 'descriptor' words as variables
+ - Developing a random forest ML model (using *randomforest* package) with common 'descriptor' words as variables
  - Visualizing results using *ggplot*, including confusion matrix and descriptor word choropleth maps
 
 **Results:**

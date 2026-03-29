@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Wine Origin ML Modeling"
 output:
   pdf_document: default
   html_document: default
@@ -16,10 +16,13 @@ library(sf)
 library(caret)
 library(rnaturalearth)
 
+# Data set from Kaggle
 wine <- read_csv("winemag-data_first150k.csv")
 ```
 
 ```{r}
+# Filtering out any words that don't necessarily pertain to a wine's specific taste
+# Want a list of the 100 most common relevant taste descriptors
 word_counts <- wine %>% 
   select(country, description, price, points, province, region_1, region_2, variety) %>%
   drop_na(country, description) %>%
@@ -31,7 +34,7 @@ word_counts <- wine %>%
 ```
 
 ```{r}
-country_counts <- wine %>% drop_na(country) %>% group_by(country) %>% summarize(count = n()) %>% arrange(desc(count)) %>% filter(country != "Israel")
+country_counts <- wine %>% drop_na(country) %>% group_by(country) %>% summarize(count = n()) %>% arrange(desc(count))
 
 at_least_10 <- (country_counts %>% filter(count > 9))[[1]]
 
@@ -45,6 +48,8 @@ wine_all_quals <- wine %>% select(description, country) %>%
 ```
 
 ```{r}
+# Visualize top countries and their frequency in the data
+# Need to decide which countries have enough data to predict
 country_counts %>% mutate(country = fct_rev(fct_infreq(country, count))) %>%
   filter(count > 100) %>% ggplot(aes(x = country, y = count)) +
   labs(
@@ -61,6 +66,7 @@ country_counts %>% mutate(country = fct_rev(fct_infreq(country, count))) %>%
 
 
 ```{r}
+# Create a unique variable for each word for the ML model
 for (x in 1:100) {
   wine_10_quals <- wine_10_quals %>%
     mutate(!!sym(word_counts[[1]][x]) := factor(case_when(
@@ -79,6 +85,7 @@ for (x in 1:100) {
 ```
 
 ```{r}
+# Move to long format
 topwords <- word_counts[[1]]
 
 wine_props <- wine_all_quals %>% 
@@ -93,6 +100,7 @@ wine_props <- wine_all_quals %>%
 ```
 
 ```{r}
+# Geographic info for choropleth visualization
 world <- ne_countries(scale = "small", returnclass = "sf")
 
 world_merc <- st_transform(world, 3857) %>% 
@@ -106,6 +114,7 @@ world_merc <- st_transform(world, 3857) %>%
             by = join_by(name == country))
 ```
 
+Visualizing individual descriptor words:
 ```{r}
 ggplot(world_merc) +
   labs(
@@ -182,10 +191,8 @@ ggplot(world_merc) +
   )
 ```
 
-
-
-
 ```{r}
+# Creating & splitting model data
 model_data <- wine_10_quals %>% 
   group_by(country) %>%
   sample_n(size = 3000, replace = FALSE)
@@ -196,17 +203,21 @@ train <- model_data[ind==1,]
 test <- model_data[ind==2,]
 ```
 
-
 ```{r}
+# Creating model
 wine_forest <- randomForest(country ~ ., mtry = 15, data = train, proximity = FALSE, ntree = 1000)
+
+wine_forest
 ```
 
 ```{r}
+# Making predictions w/ test data
 p1 <- predict(wine_forest, test)
 confusion_table <- as.tibble((confusionMatrix(p1, test$ country))$table) %>% rename("Count" = "n")
 ```
 
 ```{r}
+# Visualizing accuracy via confusion matrix
 ggplot(confusion_table, aes(x = Prediction, y = Reference, fill = Count)) +
   labs(
     title = "Model prediction accuracy"
